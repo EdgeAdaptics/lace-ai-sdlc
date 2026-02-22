@@ -1,0 +1,11 @@
+{
+  "violations": {
+    "STRICT-IMPORT": 1
+  },
+  "files": {
+    "src/strict.cpp": {
+      "violationCount": 1
+    }
+  },
+  "entropy": {}
+}

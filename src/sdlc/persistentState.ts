@@ -9,6 +9,7 @@ export interface PersistentState {
       violationCount: number;
     }
   >;
+  entropy: Record<string, number>;
 }
 
 interface StateCacheEntry {
@@ -38,6 +39,17 @@ export async function getStateSnapshot(laceRoot: string): Promise<PersistentStat
   return loadState(laceRoot);
 }
 
+export async function getEntropyForFile(laceRoot: string, modulePath: string): Promise<number | undefined> {
+  const state = await loadState(laceRoot);
+  return state.entropy[modulePath];
+}
+
+export async function updateEntropyForFile(laceRoot: string, modulePath: string, value: number): Promise<void> {
+  const state = await loadState(laceRoot);
+  state.entropy[modulePath] = round4(value);
+  scheduleWrite(laceRoot, state);
+}
+
 async function loadState(laceRoot: string): Promise<PersistentState> {
   const filePath = getStateFile(laceRoot);
   const cached = stateCache.get(filePath);
@@ -50,12 +62,15 @@ async function loadState(laceRoot: string): Promise<PersistentState> {
     const raw = await fs.readFile(filePath, 'utf8');
     parsed = JSON.parse(raw) as PersistentState;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code && code !== 'ENOENT') {
+      console.warn('[LACE] Corrupt state.json detected. Resetting persistent state.');
+    } else if (!code) {
+      console.warn('[LACE] Invalid state.json detected. Resetting persistent state.');
     }
   }
 
-  const state: PersistentState = parsed ?? { violations: {}, files: {} };
+  const state = sanitizeState(parsed);
   stateCache.set(filePath, { state, initialized: true });
   return state;
 }
@@ -81,4 +96,52 @@ function scheduleWrite(laceRoot: string, state: PersistentState): void {
 
 function getStateFile(laceRoot: string): string {
   return path.join(laceRoot, 'state.json');
+}
+
+function sanitizeState(data: PersistentState | undefined): PersistentState {
+  const base: PersistentState = {
+    violations: {},
+    files: {},
+    entropy: {}
+  };
+
+  if (!data || typeof data !== 'object') {
+    return base;
+  }
+
+  if (data.violations && typeof data.violations === 'object') {
+    for (const [ruleId, count] of Object.entries(data.violations)) {
+      if (typeof ruleId === 'string' && typeof count === 'number' && Number.isFinite(count)) {
+        base.violations[ruleId] = count;
+      }
+    }
+  }
+
+  if (data.files && typeof data.files === 'object') {
+    for (const [file, info] of Object.entries(data.files)) {
+      if (
+        typeof file === 'string' &&
+        info &&
+        typeof info === 'object' &&
+        typeof info.violationCount === 'number' &&
+        Number.isFinite(info.violationCount)
+      ) {
+        base.files[file] = { violationCount: info.violationCount };
+      }
+    }
+  }
+
+  if (data.entropy && typeof data.entropy === 'object') {
+    for (const [file, score] of Object.entries(data.entropy)) {
+      if (typeof file === 'string' && typeof score === 'number' && Number.isFinite(score)) {
+        base.entropy[file] = round4(score);
+      }
+    }
+  }
+
+  return base;
+}
+
+function round4(value: number): number {
+  return Number(value.toFixed(4));
 }

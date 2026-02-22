@@ -1,0 +1,15 @@
+decisions:
+  - id: DEC-STRICT
+    title: "Strict decision"
+    rationale: "Prevent banned headers"
+    affected_modules:
+      - "src/**"
+    linked_policies:
+      - STRICT-IMPORT
+  - id: DEC-ADVISORY
+    title: "Logging standard"
+    rationale: "Promote logging"
+    affected_modules:
+      - "src/**"
+    linked_policies:
+      - REQUIRE-LOG

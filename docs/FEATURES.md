@@ -10,6 +10,11 @@
 
 ## VSCode Integration
 - Command palette entry: `LACE: Generate with Governance Context`.
+- Context injection modes: replace, cursor, top, clipboard.
+- Advisory mode control: silent, normal, verbose (verbose adds entropy hints to hovers).
+- Smart context skip avoids inserting empty blocks and notifies the developer.
+- SDLC health command renders deterministic reports in the output channel.
+- Diagnostic hovers show policy, decision, violation count, and drift score.
 - Optional status bar badge reflecting latest evaluation state.
 - Output channel `LACE Governance` for logs and troubleshooting.
 - Automatic `.lace/policies.yaml` watcher that clears caches the moment policies change—no manual refresh required.
@@ -40,6 +45,28 @@
 // - <rule-id>: <description>
 // ... N additional items omitted (if truncated)
 ```
+
+## CLI Capabilities
+- `lace-cli evaluate <files>` — file-scoped governance checks with `--strict-only` exit logic and `--json` output for CI parsing.
+- `lace-cli validate-config` — detects duplicate IDs, invalid glob patterns, and orphaned decision/requirement references.
+- `lace-cli pr-summary --changed-files <files...>` — aggregates affected decisions/requirements, new strict violations, and entropy deltas for PR reviews.
+- CI thresholds (`maxContextInflation`, `maxEntropyScore`, `failOnDecisionDrift`) enforced with deterministic exit codes (0 success, 1 strict violations, 2 CI failure, 3 config errors).
+
+## Scientific Entropy Model
+- Normalized entropy scoring across five components:
+  - `VRS = min(strictViolations / 10, 1)`
+  - `PDS = violatedPolicies / totalApplicablePolicies`
+  - `DDS = decisionLinkedViolations / decisionsAffectingFile`
+  - `CIS = min(contextTokens / 400, 1)`
+  - `SCS = min(projectRelativeImports / 20, 1)`
+- Final entropy score `E = 0.30*VRS + 0.25*PDS + 0.20*DDS + 0.15*CIS + 0.10*SCS`, deterministically rounded to four decimals.
+- Entropy Trend Index (ETI) stored per file in `.lace/state.json` to capture the delta between runs without accumulating history.
+
+## Stability & Production Hardening
+- All user-visible lists (violations, decisions, requirements, CLI JSON arrays) are sorted deterministically.
+- Entropy scores and trend values are rounded to exactly four decimals before storage/output.
+- `.lace/state.json` is sanitized on load—corrupt or partial files are reset safely.
+- Repeat CLI evaluations produce byte-identical JSON output for unchanged files.
 
 ## Future Hooks (Phase 2+ candidates)
 - Additional language grammars.

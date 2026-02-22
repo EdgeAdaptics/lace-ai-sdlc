@@ -16,7 +16,7 @@ interface RequirementConfig {
   stage?: RequirementStage;
 }
 
-interface NormalizedRequirement {
+export interface RequirementEntry {
   id: string;
   description: string;
   stage: RequirementStage;
@@ -25,7 +25,7 @@ interface NormalizedRequirement {
 
 interface RequirementCacheEntry {
   mtimeMs: number;
-  requirements: NormalizedRequirement[];
+  requirements: RequirementEntry[];
 }
 
 export interface RequirementRecord {
@@ -36,13 +36,16 @@ export interface RequirementRecord {
 
 const cache = new Map<string, RequirementCacheEntry>();
 
-export async function getRequirementsForFile(laceRoot: string, filePath: string): Promise<RequirementRecord | undefined> {
-  const normalized = await loadRequirements(laceRoot);
-  if (normalized.length === 0) {
+export async function loadRequirementEntries(laceRoot: string): Promise<RequirementEntry[]> {
+  return loadRequirements(laceRoot);
+}
+
+export function selectRequirement(entries: RequirementEntry[], filePath: string): RequirementRecord | undefined {
+  if (entries.length === 0) {
     return undefined;
   }
 
-  const matches = normalized
+  const matches = entries
     .filter(requirement => requirement.stage !== 'stable')
     .filter(requirement => requirement.moduleMatchers.some(match => match(filePath)))
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -59,7 +62,12 @@ export async function getRequirementsForFile(laceRoot: string, filePath: string)
   };
 }
 
-async function loadRequirements(laceRoot: string): Promise<NormalizedRequirement[]> {
+export async function getRequirementsForFile(laceRoot: string, filePath: string): Promise<RequirementRecord | undefined> {
+  const entries = await loadRequirementEntries(laceRoot);
+  return selectRequirement(entries, filePath);
+}
+
+async function loadRequirements(laceRoot: string): Promise<RequirementEntry[]> {
   const filePath = path.join(laceRoot, 'requirements.yaml');
   try {
     const stat = await fs.stat(filePath);
@@ -72,7 +80,7 @@ async function loadRequirements(laceRoot: string): Promise<NormalizedRequirement
     const parsed = (parseYaml(raw) as RequirementYaml | undefined)?.requirements ?? [];
     const normalized = parsed
       .map(requirement => normalizeRequirement(requirement))
-      .filter(Boolean) as NormalizedRequirement[];
+      .filter(Boolean) as RequirementEntry[];
     cache.set(filePath, { mtimeMs: stat.mtimeMs, requirements: normalized });
     return normalized;
   } catch (error) {
@@ -84,7 +92,7 @@ async function loadRequirements(laceRoot: string): Promise<NormalizedRequirement
   }
 }
 
-function normalizeRequirement(requirement: RequirementConfig | undefined): NormalizedRequirement | undefined {
+function normalizeRequirement(requirement: RequirementConfig | undefined): RequirementEntry | undefined {
   if (!requirement || !requirement.id || !requirement.description) {
     return undefined;
   }

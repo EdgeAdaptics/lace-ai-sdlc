@@ -9,6 +9,7 @@ import type { LaceConfigLocation } from '../services/config/laceConfig';
 import { getDecisionsForFile, DecisionRecord } from '../sdlc/decisionLedger';
 import { getRequirementsForFile, RequirementRecord } from '../sdlc/requirementGraph';
 import { incrementViolation } from '../sdlc/persistentState';
+import { EntropyScoreEngine, RecordedEntropy } from '../lifecycle/entropyEngine';
 
 export interface EvaluationRequest {
   document: vscode.TextDocument;
@@ -22,13 +23,16 @@ export interface EvaluationResult {
   decisions: DecisionRecord[];
   requirement?: RequirementRecord;
   context: ContextBlockResult;
+  laceRoot: string;
+  entropy?: RecordedEntropy;
 }
 
 export class GovernanceEvaluator {
   constructor(
     private readonly policyEngine: PolicyEngine,
     private readonly fileParser: FileParser,
-    private readonly contextCompiler: ContextCompiler
+    private readonly contextCompiler: ContextCompiler,
+    private readonly entropyEngine: EntropyScoreEngine = new EntropyScoreEngine()
   ) {}
 
   async evaluate(request: EvaluationRequest): Promise<EvaluationResult> {
@@ -47,12 +51,26 @@ export class GovernanceEvaluator {
       requirement
     });
 
+    const entropy = await this.entropyEngine.record({
+      laceRoot: request.laceConfig.rootDir,
+      evaluation: {
+        metadata,
+        matches,
+        decisions,
+        requirement,
+        context,
+        laceRoot: request.laceConfig.rootDir
+      }
+    });
+
     return {
       metadata,
       matches,
       decisions,
       requirement,
-      context
+      context,
+      laceRoot: request.laceConfig.rootDir,
+      entropy
     };
   }
 

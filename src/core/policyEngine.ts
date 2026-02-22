@@ -9,12 +9,14 @@ import {
   LaceSeverity,
   NormalizedPolicy,
   PolicyFile,
-  PolicyViolation
+  PolicyViolation,
+  CiConfig
 } from './policyTypes';
 
 interface PolicyCacheEntry {
   mtimeMs: number;
   policies: NormalizedPolicy[];
+  ciConfig?: CiConfig;
 }
 
 const DEFAULT_SEVERITY: LaceSeverity = 'advisory';
@@ -37,8 +39,12 @@ export class PolicyEngine {
     }
 
     const normalized = parsed.policies.map(policy => this.normalizePolicy(policy)).filter(Boolean) as NormalizedPolicy[];
-    this.cache.set(policyFilePath, { mtimeMs, policies: normalized });
+    this.cache.set(policyFilePath, { mtimeMs, policies: normalized, ciConfig: parsed.ci });
     return normalized;
+  }
+
+  getCiConfig(policyFilePath: string): CiConfig | undefined {
+    return this.cache.get(policyFilePath)?.ciConfig;
   }
 
   evaluate(policies: NormalizedPolicy[], metadata: ParsedFileMetadata): ApplicablePolicy[] {

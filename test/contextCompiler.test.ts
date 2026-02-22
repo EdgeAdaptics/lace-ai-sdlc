@@ -86,4 +86,28 @@ describe('ContextCompiler', () => {
       expect(result.text).toContain('additional items omitted');
     }
   });
+
+  it('produces deterministic ordering regardless of match order', () => {
+    const compiler = new ContextCompiler();
+    const matchesA: ApplicablePolicy[] = [
+      { policy: createPolicy('RULE-B', 'advisory'), violations: [] },
+      { policy: createPolicy('RULE-A', 'strict'), violations: [] }
+    ];
+    const matchesB: ApplicablePolicy[] = matchesA.slice().reverse();
+
+    const resultA = compiler.compile({
+      metadata: { ...baseMetadata },
+      matches: matchesA,
+      decisions: [],
+      requirement: undefined
+    });
+    const resultB = compiler.compile({
+      metadata: { ...baseMetadata },
+      matches: matchesB,
+      decisions: [],
+      requirement: undefined
+    });
+
+    expect(resultA.text).toBe(resultB.text);
+  });
 });

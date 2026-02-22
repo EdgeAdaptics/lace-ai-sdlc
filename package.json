@@ -2,7 +2,7 @@
   "name": "lace-ai-sdlc",
   "displayName": "LACE AI-SDLC Governance",
   "description": "Lightweight governance context injector for GitHub Copilot.",
-  "version": "0.1.0",
+  "version": "0.5.0-beta",
   "publisher": "lace",
   "license": "MIT",
   "repository": {
@@ -21,6 +21,9 @@
     "onCommand:lace.showSdlcHealth"
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "lace-cli": "./dist/cli/index.js"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "build": "npm run clean && tsc -p .",
@@ -29,6 +32,23 @@
     "verify": "npm run build && npm run test"
   },
   "contributes": {
+    "configuration": {
+      "title": "LACE Governance Settings",
+      "properties": {
+        "lace.contextInjectionMode": {
+          "type": "string",
+          "enum": ["replace", "cursor", "top", "clipboard"],
+          "default": "replace",
+          "description": "Controls how LACE inserts context blocks."
+        },
+        "lace.advisoryMode": {
+          "type": "string",
+          "enum": ["silent", "normal", "verbose"],
+          "default": "normal",
+          "description": "Controls how advisory findings are surfaced."
+        }
+      }
+    },
     "commands": [
       {
         "command": "lace.generateContext",

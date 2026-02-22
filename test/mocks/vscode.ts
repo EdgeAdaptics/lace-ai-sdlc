@@ -105,3 +105,10 @@ export const DiagnosticSeverity = {
   Warning: 1,
   Error: 2
 };
+
+export class Diagnostic {
+  code?: string;
+  source?: string;
+
+  constructor(public range: Range, public message: string, public severity: number) {}
+}

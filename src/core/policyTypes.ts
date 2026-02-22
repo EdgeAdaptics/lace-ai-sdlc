@@ -18,8 +18,15 @@ export interface LacePolicyConfig {
   origin?: string;
 }
 
+export interface CiConfig {
+  maxContextInflation?: number;
+  maxEntropyScore?: number;
+  failOnDecisionDrift?: boolean;
+}
+
 export interface PolicyFile {
   policies: LacePolicyConfig[];
+  ci?: CiConfig;
 }
 
 export interface PolicyViolation {

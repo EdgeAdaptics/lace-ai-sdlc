@@ -15,7 +15,7 @@ interface DecisionConfig {
   linked_policies?: string[];
 }
 
-interface NormalizedDecision {
+export interface DecisionEntry {
   id: string;
   title: string;
   rationale: string;
@@ -25,7 +25,7 @@ interface NormalizedDecision {
 
 interface LedgerCacheEntry {
   mtimeMs: number;
-  decisions: NormalizedDecision[];
+  decisions: DecisionEntry[];
 }
 
 export interface DecisionRecord {
@@ -36,19 +36,22 @@ export interface DecisionRecord {
 
 const cache = new Map<string, LedgerCacheEntry>();
 
-export async function getDecisionsForFile(
-  laceRoot: string,
+export async function loadDecisionEntries(laceRoot: string): Promise<DecisionEntry[]> {
+  return loadDecisions(laceRoot);
+}
+
+export function selectDecisions(
+  entries: DecisionEntry[],
   filePath: string,
   linkedPolicyIds: string[] = []
-): Promise<DecisionRecord[]> {
-  const normalized = await loadDecisions(laceRoot);
-  if (normalized.length === 0) {
+): DecisionRecord[] {
+  if (entries.length === 0) {
     return [];
   }
 
   const lowerPolicyIds = new Set(linkedPolicyIds.map(id => id.toLowerCase()));
   const matches: DecisionRecord[] = [];
-  for (const decision of normalized) {
+  for (const decision of entries) {
     const moduleMatched = decision.moduleMatchers.length > 0 && decision.moduleMatchers.some(match => match(filePath));
     const policyMatched =
       decision.linkedPolicies.length > 0 &&
@@ -72,12 +75,19 @@ export async function getDecisionsForFile(
     }
   }
 
-  return Array.from(uniqueById.values())
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .slice(0, 2);
+  return Array.from(uniqueById.values()).sort((a, b) => a.id.localeCompare(b.id)).slice(0, 2);
 }
 
-async function loadDecisions(laceRoot: string): Promise<NormalizedDecision[]> {
+export async function getDecisionsForFile(
+  laceRoot: string,
+  filePath: string,
+  linkedPolicyIds: string[] = []
+): Promise<DecisionRecord[]> {
+  const entries = await loadDecisionEntries(laceRoot);
+  return selectDecisions(entries, filePath, linkedPolicyIds);
+}
+
+async function loadDecisions(laceRoot: string): Promise<DecisionEntry[]> {
   const filePath = path.join(laceRoot, 'decisions.yaml');
   try {
     const stat = await fs.stat(filePath);
@@ -90,7 +100,7 @@ async function loadDecisions(laceRoot: string): Promise<NormalizedDecision[]> {
     const parsed = (parseYaml(raw) as DecisionYaml | undefined)?.decisions ?? [];
     const normalized = parsed
       .map(decision => normalizeDecision(decision))
-      .filter(Boolean) as NormalizedDecision[];
+      .filter(Boolean) as DecisionEntry[];
     cache.set(filePath, { mtimeMs: stat.mtimeMs, decisions: normalized });
     return normalized;
   } catch (error) {
@@ -102,7 +112,7 @@ async function loadDecisions(laceRoot: string): Promise<NormalizedDecision[]> {
   }
 }
 
-function normalizeDecision(decision: DecisionConfig | undefined): NormalizedDecision | undefined {
+function normalizeDecision(decision: DecisionConfig | undefined): DecisionEntry | undefined {
   if (!decision || !decision.id || !decision.title) {
     return undefined;
   }

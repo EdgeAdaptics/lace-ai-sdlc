@@ -1,0 +1,19 @@
+policies:
+  - id: STRICT-IMPORT
+    description: "Block banned header"
+    language: cpp
+    scope: {}
+    forbidden_imports:
+      - "banned.hpp"
+    severity: strict
+  - id: REQUIRE-LOG
+    description: "Encourage logging import"
+    language: cpp
+    scope: {}
+    required_imports:
+      - "log.hpp"
+    severity: advisory
+ci:
+  maxContextInflation: 1
+  maxEntropyScore: 0
+  failOnDecisionDrift: true

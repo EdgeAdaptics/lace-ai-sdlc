@@ -7,13 +7,16 @@ Lace is a deterministic governance layer that sits beside GitHub Copilot. It loa
 - VSCode extension command: `LACE: Generate with Governance Context`.
 - YAML-driven policy engine scoped per module/function with import/call invariants.
 - Parser extracts imports/classes/functions from the active document (file-scoped only).
-- Token-bounded context compiler (≤400 tokens) emits structured comments, replaces previous LACE blocks, and now embeds linked decisions/requirements.
+- Token-bounded context compiler (≤400 tokens) emits structured comments, replaces previous LACE blocks, embeds linked decisions/requirements, and feeds the entropy model.
+- Context injection modes (`replace`, `cursor`, `top`, `clipboard`) plus smart skip when nothing needs to be shared.
+- Advisory mode control (silent/normal/verbose) and diagnostic hovers with policy/decision/drift metadata.
 - Automatic `.lace/policies.yaml` watcher keeps policy caches fresh without manual commands.
 - On-save evaluation uses the same pipeline to refresh diagnostics without blocking edits.
-- SDLC Memory Layer (minimal) parses `.lace/decisions.yaml` / `.lace/requirements.yaml` and tracks strict violation recurrence in `.lace/state.json`.
+- SDLC Memory Layer (minimal) parses `.lace/decisions.yaml` / `.lace/requirements.yaml` and tracks strict violation recurrence and entropy per file in `.lace/state.json`.
+- Scientific entropy engine (VRS/PDS/DDS/CIS/SCS) computes deterministic scores and Entropy Trend Indexes per file.
 - Vitest-based unit coverage for policy engine, parser, SDLC memory, persistent state, and context compiler.
 
-See `docs/FEATURES.md` for the full capability list, `docs/ARCHITECTURE.md` for the complete design document, and `docs/DEVELOPMENT.md` for build + testing instructions.
+See `docs/FEATURES.md` for the full capability list, `docs/ARCHITECTURE.md` for the complete design document, `docs/DEVELOPMENT.md` for build + testing instructions, and `ROADMAP.md` for the phased plan.
 
 ## Repository Structure
 ```
@@ -44,6 +47,17 @@ src/
 - `LACE: Generate with Governance Context` — parses the active file, evaluates policies, inserts/replaces the structured context block, and surfaces diagnostics.
 - `LACE: Refresh Policies` — clears cached YAML policies so the next run reloads them from `.lace/policies.yaml` (mostly redundant now that watchers exist, but still available for manual resets).
 - `LACE: Show SDLC Health` — runs Layer 3 lifecycle analytics (entropy + drift) for the active file and prints a structured report to the output channel.
+
+## CLI Usage
+- `lace-cli evaluate <files> [--strict-only] [--json]` — deterministic evaluation with exit codes (0 success, 1 strict violations, 2 CI threshold failure).
+- `lace-cli validate-config` — checks `.lace` policies/decisions/requirements for duplicate IDs or orphaned references (exit code 3 on failure).
+- `lace-cli pr-summary --changed-files file1 file2` — aggregates affected decisions/requirements, new strict violations, and entropy deltas for PRs.
+
+## Production Readiness Notes
+- Outputs (context, CLI, SDLC health) are fully sorted and deterministic.
+- Entropy scores and ETI values are rounded to four decimals and persisted in `.lace/state.json` with corruption recovery.
+- State persistence contains only aggregate counts and entropy entries—no histories, timestamps, or unbounded growth.
+- Exit codes remain fixed: 0 success, 1 strict violations, 2 CI threshold failure, 3 config validation failure.
 
 ## Roadmap
 - Phase 1: Minimal viable governance layer (in progress).

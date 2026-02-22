@@ -61,7 +61,7 @@ export class ContextCompiler {
     }
 
     pushLine('// Decisions Affecting Module:');
-    const decisions = input.decisions.slice(0, 2);
+    const decisions = [...input.decisions].sort((a, b) => a.id.localeCompare(b.id)).slice(0, 2);
     let decisionsIncluded = 0;
     if (decisions.length === 0) {
       pushLine('// - (none)');

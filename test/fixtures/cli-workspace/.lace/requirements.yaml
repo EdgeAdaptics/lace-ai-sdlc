@@ -1,0 +1,8 @@
+requirements:
+  - id: REQ-LOG
+    description: "Logging requirement"
+    modules:
+      - "src/**"
+    stage: development
+    decisions:
+      - DEC-ADVISORY

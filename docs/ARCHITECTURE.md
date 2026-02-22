@@ -60,6 +60,42 @@ Storage: .lace/policies.yaml (+ future `.lace/decisions.yaml`, `.lace/requiremen
 6. Context Compiler assembles the token-limited comment block and advisory payload (strict-first ordering, ≤5 invariants, ≤400 tokens), replacing a previous block if the user chooses.
 7. Extension inserts/updates the comment for command runs or just updates diagnostics/status for save events, logs to the output channel, and clears transient state.
 
+### CLI Flow (v0.3)
+```
+lace-cli evaluate → File Analyzer (regex-based imports/calls)
+                  → Policy Engine + SDLC Memory
+                  → Context Compiler (for entropy/context inflation metrics)
+                  → Output Formatter (text or JSON)
+                  → Exit code (0/1/2/3 based on strict violations, CI thresholds, or config errors)
+
+lace-cli validate-config → YAML loaders (.lace/policies|decisions|requirements) → Deterministic rule checks
+
+lace-cli pr-summary --changed-files → evaluate pipeline per file → aggregate decisions/requirements/entropy delta
+```
+
+## 12. Scientific Entropy Model (v0.4)
+For each evaluated file *f*, the entropy components are normalized to `[0,1]`:
+
+- `VRS(f) = min(strictViolations / 10, 1)`
+- `PDS(f) = violatedPolicies / totalApplicablePolicies` (0 when no applicable policies)
+- `DDS(f) = decisionLinkedViolations / decisionsAffectingFile` (0 when no decisions)
+- `CIS(f) = min(contextTokens / 400, 1)` using the deterministic token estimator (characters ÷ 4)
+- `SCS(f) = min(projectRelativeImports / 20, 1)` where project-relative imports/includes are counted via file-scoped regex heuristics
+
+The final entropy score:
+
+```
+E(f) = 0.30·VRS + 0.25·PDS + 0.20·DDS + 0.15·CIS + 0.10·SCS
+```
+
+`E(f)` is rounded to four decimals. The Entropy Trend Index stores the delta `ETI(f) = E_current(f) – E_previous(f)` inside `.lace/state.json` under `entropy[relativeFilePath]`, enabling deterministic drift analysis without historical series.
+
+## 13. Determinism Guarantees (v0.5 Phase 5A)
+- All emitted sequences (context blocks, CLI JSON arrays, SDLC health sections, PR summaries) are sorted and stable across runs.
+- Entropy scores and ETI values are rounded to exactly 4 decimals; tiny differences (<0.0001) collapse to zero for stable trend reporting.
+- `.lace/state.json` sanitization ensures only aggregate counters (`violations`, `files`, `entropy`) persist; corrupt files are reset safely with warnings.
+- CLI evaluate tests verify that repeated evaluations of unchanged files produce byte-identical JSON output.
+
 ## 8. Performance Constraints & Resource Budget
 - Activation: <200 ms (command-only activation; lazy module loads).
 - Command runtime: YAML load <10 ms (≤50 KB), LSP symbol provider typically <40 ms for 1k LOC, regex scan <10 ms, compilation <20 ms; on-save validation targets <50 ms typical files.
@@ -72,6 +108,7 @@ Storage: .lace/policies.yaml (+ future `.lace/decisions.yaml`, `.lace/requiremen
 - Activation Event: `onCommand:lace.generateContext` keeps idle footprint near zero.
 - Commands: primary generation command + `lace.refreshPolicies` (manual cache clear).
 - Health Command: `lace.showSdlcHealth` runs Layer 3 entropy/drift analysis and prints structured text to the output channel.
+- Context controls: `lace.contextInjectionMode` governs insertion behavior; `lace.advisoryMode` controls diagnostics/hover verbosity; smart skip avoids injecting empty context blocks.
 - Diagnostics: `vscode.DiagnosticCollection` for advisory vs strict severity (strict shown as errors but still non-blocking).
 - Output Channel: `LACE Governance` for logs/errors.
 - Status Bar: optional indicator showing last evaluation (OK/warning/error).

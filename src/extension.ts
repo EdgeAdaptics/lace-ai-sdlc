@@ -4,11 +4,12 @@ import { registerGenerateContextCommand } from './commands/generateContext';
 import { registerRefreshPoliciesCommand } from './commands/refreshPolicies';
 import { registerShowSdlcHealthCommand } from './commands/showSdlcHealth';
 import { ContextCompiler } from './context/contextCompiler';
-import { GovernanceEvaluator } from './core/evaluator';
+import { GovernanceEvaluator, EvaluationResult } from './core/evaluator';
 import { PolicyEngine } from './core/policyEngine';
 import { PolicyWatcher } from './services/config/policyWatcher';
 import { FileParser } from './services/parser/fileParser';
 import { LaceExtensionResources } from './types/resources';
+import { registerHoverProvider } from './vscode/hoverProvider';
 
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel('LACE Governance');
@@ -26,6 +27,8 @@ export function activate(context: vscode.ExtensionContext): void {
   policyWatcher.initialize();
   const evaluator = new GovernanceEvaluator(policyEngine, fileParser, contextCompiler);
 
+  const evaluationCache = new Map<string, EvaluationResult>();
+
   const resources: LaceExtensionResources = {
     extensionContext: context,
     diagnostics,
@@ -34,7 +37,8 @@ export function activate(context: vscode.ExtensionContext): void {
     fileParser,
     contextCompiler,
     outputChannel,
-    statusBarItem
+    statusBarItem,
+    evaluationCache
   };
 
   context.subscriptions.push(
@@ -44,7 +48,8 @@ export function activate(context: vscode.ExtensionContext): void {
     policyWatcher,
     registerGenerateContextCommand(resources),
     registerRefreshPoliciesCommand(resources),
-    registerShowSdlcHealthCommand(resources)
+    registerShowSdlcHealthCommand(resources),
+    registerHoverProvider(resources)
   );
 
   outputChannel.appendLine('LACE extension activated.');

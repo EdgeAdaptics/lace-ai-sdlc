@@ -1,0 +1,7 @@
+policies:
+  - id: REGEX-TEST
+    description: "Test policy"
+    language: cpp
+    scope: {}
+    forbidden_imports: []
+    severity: advisory

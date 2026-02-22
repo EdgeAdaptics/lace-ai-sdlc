@@ -1,16 +1,16 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { findLaceConfig } from '../services/config/laceConfig';
-import type { ContextBlockResult } from '../context/contextCompiler';
-import type { ApplicablePolicy } from '../core/policyTypes';
-import type { ParsedFileMetadata } from '../services/parser/types';
 import { LaceExtensionResources } from '../types/resources';
+import { getAdvisoryMode, getContextInsertionMode } from '../config/settings';
+import { applyContextInsertion, shouldSkipContext } from '../context/contextInsertion';
+import { buildDiagnostics } from '../vscode/diagnostics';
 
 const COMMAND_ID = 'lace.generateContext';
 
 export function registerGenerateContextCommand(resources: LaceExtensionResources): vscode.Disposable {
   return vscode.commands.registerCommand(COMMAND_ID, async () => {
-    const { outputChannel, statusBarItem } = resources;
+    const { outputChannel, statusBarItem, evaluationCache } = resources;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       void vscode.window.showWarningMessage('LACE requires an active editor to generate context.');
@@ -36,18 +36,35 @@ export function registerGenerateContextCommand(resources: LaceExtensionResources
         cursor: editor.selection.active,
         laceConfig: configLocation
       });
+      evaluationCache.set(document.uri.toString(), evaluation);
       const contextBlock = evaluation.context;
 
-      const inserted = await insertContextBlock(editor, contextBlock);
-      if (!inserted) {
-        outputChannel.appendLine('[LACE] Context insertion canceled by user.');
-        return;
+      if (shouldSkipContext(evaluation)) {
+        void vscode.window.showInformationMessage('LACE: No governance context required.');
+      } else {
+        const mode = getContextInsertionMode();
+        const plan = applyContextInsertion(
+          document.getText(),
+          contextBlock.text,
+          mode,
+          document.offsetAt(editor.selection.active)
+        );
+
+        if (plan.clipboardText) {
+          await vscode.env.clipboard.writeText(plan.clipboardText);
+          outputChannel.appendLine('[LACE] Context copied to clipboard.');
+        } else if (plan.newText !== undefined) {
+          await replaceDocumentText(editor, plan.newText);
+          outputChannel.appendLine(
+            `[LACE] Context inserted (${contextBlock.invariantsIncluded} invariants, ${contextBlock.decisionsIncluded} decisions).`
+          );
+        }
       }
 
-      resources.diagnostics.set(document.uri, buildDiagnostics(evaluation.metadata, evaluation.matches, document));
-
-      outputChannel.appendLine(
-        `[LACE] Context inserted (${contextBlock.invariantsIncluded} invariants, ${contextBlock.decisionsIncluded} decisions).`
+      const advisoryMode = getAdvisoryMode();
+      resources.diagnostics.set(
+        document.uri,
+        buildDiagnostics(evaluation.metadata, evaluation.matches, document, advisoryMode)
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -69,87 +86,12 @@ function collectSearchPaths(document: vscode.TextDocument): string[] {
   return Array.from(paths);
 }
 
-async function insertContextBlock(editor: vscode.TextEditor, contextBlock: ContextBlockResult): Promise<boolean> {
-  const existingRange = findExistingContextBlock(editor.document);
-  let replaceExisting = false;
-
-  if (existingRange) {
-    const selection = await vscode.window.showQuickPick(
-      [
-        { label: 'Replace existing LACE context block', value: 'replace' },
-        { label: 'Insert another block at cursor', value: 'insert' }
-      ],
-      {
-        placeHolder: 'Existing LACE context block detected.'
-      }
-    );
-
-    if (!selection) {
-      return false;
-    }
-
-    replaceExisting = selection.value === 'replace';
-  }
-
+async function replaceDocumentText(editor: vscode.TextEditor, newText: string): Promise<void> {
   await editor.edit(editBuilder => {
-    const snippet = `${contextBlock.text}\n`;
-    if (replaceExisting && existingRange) {
-      editBuilder.replace(existingRange, snippet);
-    } else {
-      editBuilder.insert(editor.selection.start, snippet);
-    }
+    const document = editor.document;
+    const lastLine = document.lineCount > 0 ? document.lineCount - 1 : 0;
+    const endPosition = document.lineCount === 0 ? new vscode.Position(0, 0) : document.lineAt(lastLine).range.end;
+    const fullRange = new vscode.Range(new vscode.Position(0, 0), endPosition);
+    editBuilder.replace(fullRange, newText);
   });
-
-  return true;
-}
-
-function buildDiagnostics(
-  metadata: ParsedFileMetadata,
-  matches: ApplicablePolicy[],
-  document: vscode.TextDocument
-): vscode.Diagnostic[] {
-  const diagnostics: vscode.Diagnostic[] = [];
-  const importRangeByValue = new Map<string, vscode.Range>(metadata.imports.map(entry => [entry.value, entry.range]));
-
-  for (const match of matches) {
-    for (const violation of match.violations) {
-      const severity =
-        violation.severity === 'strict' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
-      let range = document.lineAt(0).range;
-      if (violation.offending) {
-        const matchedRange = importRangeByValue.get(violation.offending);
-        if (matchedRange) {
-          range = matchedRange;
-        }
-      }
-
-      diagnostics.push(new vscode.Diagnostic(range, violation.message, severity));
-    }
-  }
-
-  return diagnostics;
-}
-
-function findExistingContextBlock(document: vscode.TextDocument): vscode.Range | undefined {
-  for (let line = 0; line < document.lineCount; line += 1) {
-    const currentLine = document.lineAt(line);
-    if (!currentLine.text.startsWith('// LACE CONTEXT:')) {
-      continue;
-    }
-
-    let endLine = line;
-    while (endLine + 1 < document.lineCount) {
-      const nextLine = document.lineAt(endLine + 1);
-      if (!nextLine.text.trim().startsWith('//')) {
-        break;
-      }
-      endLine += 1;
-    }
-
-    const startPosition = new vscode.Position(line, 0);
-    const endPosition = document.lineAt(endLine).range.end;
-    return new vscode.Range(startPosition, endPosition);
-  }
-
-  return undefined;
 }

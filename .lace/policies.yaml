@@ -1,0 +1,18 @@
+policies:
+  - id: LACE-LAYER-001
+    description: "UI modules must not import data layer directly."
+    language: all
+    scope:
+      module_glob: "src/ui/**"
+    forbidden_imports:
+      - "src/data/**"
+    required_imports: []
+    severity: strict
+  - id: LACE-COMMON-IMPORTS
+    description: "All modules must import shared logging utilities."
+    language: all
+    scope: {}
+    forbidden_imports: []
+    required_imports:
+      - "@lace/logging"
+    severity: advisory

@@ -1,0 +1,64 @@
+{
+  "name": "lace-ai-sdlc",
+  "displayName": "LACE AI-SDLC Governance",
+  "description": "Lightweight governance context injector for GitHub Copilot.",
+  "version": "0.1.0",
+  "publisher": "lace",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lace-ai/lace-ai-sdlc"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:lace.generateContext",
+    "onCommand:lace.refreshPolicies",
+    "onCommand:lace.showSdlcHealth"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run clean && tsc -p .",
+    "watch": "tsc -w -p .",
+    "test": "vitest run",
+    "verify": "npm run build && npm run test"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "lace.generateContext",
+        "title": "LACE: Generate with Governance Context",
+        "category": "LACE"
+      },
+      {
+        "command": "lace.refreshPolicies",
+        "title": "LACE: Refresh Policies",
+        "category": "LACE"
+      },
+      {
+        "command": "lace.showSdlcHealth",
+        "title": "LACE: Show SDLC Health",
+        "category": "LACE"
+      }
+    ]
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "picomatch": "^4.0.2",
+    "web-tree-sitter": "^0.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.25",
+    "@types/vscode": "^1.85.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/picomatch": "^2.3.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  }
+}

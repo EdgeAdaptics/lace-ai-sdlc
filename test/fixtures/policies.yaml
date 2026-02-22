@@ -1,0 +1,17 @@
+policies:
+  - id: TEST-FORBIDDEN
+    description: "UI files cannot import data layer"
+    language: all
+    scope:
+      module_glob: "src/ui/**"
+    forbidden_imports:
+      - "src/data/**"
+    severity: strict
+  - id: TEST-REQUIRED
+    description: "UI files must import shared logger"
+    language: all
+    scope:
+      module_glob: "src/ui/**"
+    required_imports:
+      - "@lace/logging"
+    severity: advisory

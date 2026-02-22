@@ -1,0 +1,11 @@
+requirements:
+  - id: REQ-OBS-001
+    description: "Modules must expose structured logs during development."
+    modules:
+      - "src/**"
+    stage: development
+  - id: REQ-STABLE-001
+    description: "Legacy drivers remain frozen."
+    modules:
+      - "legacy/**"
+    stage: stable

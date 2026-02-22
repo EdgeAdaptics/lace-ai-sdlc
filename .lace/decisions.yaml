@@ -1,0 +1,15 @@
+decisions:
+  - id: DECISION-UI-001
+    title: "UI components remain presentation-only"
+    rationale: "Prevents tightly coupled data dependencies."
+    affected_modules:
+      - "src/ui/**"
+    linked_policies:
+      - LACE-LAYER-001
+  - id: DECISION-LOG-001
+    title: "All modules adopt shared logging"
+    rationale: "Ensures consistent observability."
+    affected_modules:
+      - "src/**"
+    linked_policies:
+      - LACE-COMMON-IMPORTS

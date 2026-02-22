@@ -3,6 +3,9 @@
 ## 1. Executive Summary
 LACE (Local AI-SDLC Cognition & Governance Engine) is a deterministic intelligence layer that governs AI-generated code, enforces architectural invariants, and maintains structured SDLC memory while remaining lightweight and local-first. The VSCode extension reads repository policies (`.lace/policies.yaml`), queries VSCode’s language services for the active file, augments the results with regex scanning, evaluates policy compliance, and emits a deterministic context block plus advisory diagnostics. Everything runs on-demand or on-save, stays under tight CPU/memory budgets, and limits context injection to ≤400 tokens so developers can guide Copilot without manual prompt crafting. Phase 1 implements the Governance Kernel for C++, Python, and Bash; higher layers (SDLC Memory, Lifecycle Intelligence, Org/CI Integration) are designed as extension points for future releases.
 
+## Governance vs AI Assistants
+LACE does not replace Copilot or any other assistant; it constrains them. The VSCode command runs only when explicitly triggered, gathers file-scoped metadata, and emits a structured context block that lists applicable policies, linked decisions, requirements, and violations. Developers then pass that block to their assistant (or simply rely on the diagnostics) knowing it contains the exact governance reminders defined in the repository. No private Copilot APIs are used, there is no keybinding hijacking, and LACE never intercepts prompts—assistant usage remains under developer control while governance stays deterministic.
+
 ## 2. Problem Statement — AI-SDLC Entropy
 Generative assistants accelerate development but often violate architectural boundaries, mix forbidden dependencies, or ignore layering contracts—especially in large C++/Python/Bash codebases. Without lightweight guardrails, teams accumulate “AI-driven entropy”: token waste, brittle scripts, and drift from established SDLC processes. Lace injects policy-aware context just-in-time, reminding AI copilots of invariants while staying advisory-first and infrastructure-light.
 
@@ -89,6 +92,12 @@ E(f) = 0.30·VRS + 0.25·PDS + 0.20·DDS + 0.15·CIS + 0.10·SCS
 ```
 
 `E(f)` is rounded to four decimals. The Entropy Trend Index stores the delta `ETI(f) = E_current(f) – E_previous(f)` inside `.lace/state.json` under `entropy[relativeFilePath]`, enabling deterministic drift analysis without historical series.
+
+## Determinism Guarantees
+- Policies, decisions, requirements, and CLI outputs are sorted before emission; repeat evaluations of the same inputs produce identical results.
+- Entropy scores and ETI values are rounded to four decimals, and sub-0.0001 differences collapse to zero so floating drift never appears in diagnostics.
+- `.lace/state.json` stores only bounded aggregates (`violations`, `files`, `entropy`). Corrupt or missing files are reset safely with logged warnings; no historical logs accumulate.
+- CLI commands load YAML once per invocation and reuse the parsed objects for every file in that process, ensuring linear scaling without re-reading configuration under load.
 
 ## 13. Determinism Guarantees (v0.5 Phase 5A)
 - All emitted sequences (context blocks, CLI JSON arrays, SDLC health sections, PR summaries) are sorted and stable across runs.

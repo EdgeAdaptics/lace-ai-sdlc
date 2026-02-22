@@ -26,7 +26,7 @@
 
 ## Parser & Analysis
 - Extracts imports, classes, functions, exported/default declarations, and cursor-active symbol (including `const foo = () => {}` patterns).
-- Lightweight regex-based function-call detection to support dangerous call invariants.
+- Lightweight, anchored regex-based detection of imports/includes/function calls; patterns are tested against 10k-character lines to prevent catastrophic backtracking.
 - Incremental execution on explicit command or save; no background scans.
 
 ## Context Output Structure
@@ -51,6 +51,7 @@
 - `lace-cli validate-config` — detects duplicate IDs, invalid glob patterns, and orphaned decision/requirement references.
 - `lace-cli pr-summary --changed-files <files...>` — aggregates affected decisions/requirements, new strict violations, and entropy deltas for PR reviews.
 - CI thresholds (`maxContextInflation`, `maxEntropyScore`, `failOnDecisionDrift`) enforced with deterministic exit codes (0 success, 1 strict violations, 2 CI failure, 3 config errors).
+- Policies, decisions, and requirements are parsed once per CLI invocation and reused for every file in that process to keep evaluations linear and deterministic.
 
 ## Scientific Entropy Model
 - Normalized entropy scoring across five components:
@@ -67,6 +68,7 @@
 - Entropy scores and trend values are rounded to exactly four decimals before storage/output.
 - `.lace/state.json` is sanitized on load—corrupt or partial files are reset safely.
 - Repeat CLI evaluations produce byte-identical JSON output for unchanged files.
+- Regex and YAML safety: high-volume test fixtures ensure long single-line files do not trigger catastrophic backtracking and YAML files are cached per process rather than parsed repeatedly.
 
 ## Future Hooks (Phase 2+ candidates)
 - Additional language grammars.
